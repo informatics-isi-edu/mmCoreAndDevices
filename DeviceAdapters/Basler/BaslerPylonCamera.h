@@ -65,7 +65,7 @@ class CTempCameraEventHandler;
 class CircularBufferInserter;
 class BaslerCamera : public CCameraBase<BaslerCamera>  {
 public:
-	BaslerCamera();
+	BaslerCamera(std::string serialNumber);
 	~BaslerCamera();
 
 	// MMDevice API
@@ -181,6 +181,7 @@ private:
 	std::string shutterMode_;
 	std::string temperature_;
 	std::string temperatureState_;
+	std::string cameraName_;
 	
 
 	void* imgBuffer_;

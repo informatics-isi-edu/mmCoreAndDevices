@@ -66,6 +66,7 @@ using namespace GenICam;
 #include "BaslerPylonCamera.h"
 #include <sstream>
 #include <math.h>
+#include <regex>
 #include "ModuleInterface.h"
 #include "DeviceUtils.h"
 #include <vector>
@@ -124,12 +125,22 @@ MODULE_API MM::Device* CreateDevice(const char* deviceName)
 {
 	if (deviceName == 0)
 		return 0;
+	
+	std::regex regex_cameraName(std::string(g_BaslerCameraDeviceName) + std::string("(\\.(\\d+))?"));
+	std::cmatch sn_match;
+	std::string serialNumber("Undefined");
 
-	// decide which device class to create based on the deviceName parameter
-	if (strcmp(deviceName, g_BaslerCameraDeviceName) == 0) {
+	if (std::regex_match(deviceName, sn_match, regex_cameraName))
+	{
+		if (sn_match.size() == 3)
+		{
+			serialNumber = sn_match[2];
+		}
 		// create camera
-		return new BaslerCamera();
+		return new BaslerCamera(serialNumber);
+
 	}
+
 	// ...supplied name not recognized
 	return 0;
 }
@@ -146,7 +157,7 @@ MODULE_API void DeleteDevice(MM::Device* pDevice)
 /**
 * Constructor.
 */
-BaslerCamera::BaslerCamera() :
+BaslerCamera::BaslerCamera(std::string serialNumber) :
 	CCameraBase<BaslerCamera>(),
 	maxWidth_(0),
 	maxHeight_(0),
@@ -176,8 +187,9 @@ BaslerCamera::BaslerCamera() :
 	SetErrorText(ERR_SERIAL_NUMBER_NOT_FOUND, "No camera with the given serial number was found");
 	SetErrorText(ERR_CANNOT_CONNECT, "Cannot connect to camera; it may be in use");
 
-	CreateStringProperty("SerialNumber", "Undefined", false, 0, true);
 
+	CreateStringProperty("SerialNumber", serialNumber.c_str(), false, 0, true);
+	
 	//pre-init properties
 	PylonInitialize(); // Initialize/Terminate is reference counted by Pylon
 
@@ -201,11 +213,14 @@ BaslerCamera::BaslerCamera() :
 		String_t s = device.GetSerialNumber();
 		AddAllowedValue("SerialNumber", s.c_str());
 
-		if (first)
+		if (first && serialNumber == "Undefined")
 		{
 			SetProperty("SerialNumber", s.c_str());
 			first = false;
+			serialNumber = s;
 		}
+
+		cameraName_ = g_BaslerCameraDeviceName + std::string(".") + serialNumber;
 	}
 
 	PylonTerminate();
@@ -228,7 +243,7 @@ BaslerCamera::~BaslerCamera()
 */
 void BaslerCamera::GetName(char* name) const
 {
-	CDeviceUtils::CopyLimitedString(name, g_BaslerCameraDeviceName);
+	CDeviceUtils::CopyLimitedString(name, cameraName_.c_str());
 }
 /// <summary>
 /// convert the EDeviceAccessiblityInfo to string 
